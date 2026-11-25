@@ -1,0 +1,20 @@
+# Frontend dependencies and generated output
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.tmp/
+
+# Backend build output
+spring-ai-qdrant-rag/target/
+
+# IDE and OS files
+**/.idea/
+.DS_Store
+Thumbs.db
+
+# Local environment files may contain credentials
+.env
+.env.*
+!.env.example
+!frontend/.env.example
+!spring-ai-qdrant-rag/.env.example

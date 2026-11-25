@@ -1,0 +1,178 @@
+# =============================================================================
+# spring-ai-qdrant-rag 运行配置
+#
+# 本次补充/修正（只动配置，没有改 controller、service、dto 任何业务代码）：
+#   1. 修正无效键：原来写的 spring.ai.embedding.model / spring.ai.chat.model 不是
+#      Spring AI 1.x 的属性名，模型选择键是 spring.ai.model.embedding / spring.ai.model.chat
+#      （取值 ollama|openai|none，见官方 Ollama 文档）。旧键会被静默忽略，看起来"配了"其实没生效。
+#   2. 新增 management.endpoint.health.show-details: always。默认 never 时，
+#      GET /actuator/health 匿名只返回 {"status":"UP"}，前端的 health.components（db/ping/vectorStore）
+#      会一直是空 —— 这是前端 Dashboard「后端与数据链路」面板能不能出数据的开关。
+#   3. 新增 management.info.env.enabled + info.* 自定义键，让 GET /actuator/info 不再返回 {}。
+#   4. 新增 spring.profiles.active 默认值。没有这一行，下面 ollama / openai 两段 profile 配置不会生效。
+#   5. 新增 multipart 上限，与前端「文档管理」页 20MB 拦截对齐（上传接口本身仍待后端实现）。
+#   6. 补注释：Qdrant 维度与集合的关系、连 Dify 那套 Qdrant 的坑、Ollama 需要先起服务并拉模型、
+#      CORS 为什么不在这里配、以及前端预留的接口路径清单。
+#
+# 所有值都可以用环境变量覆盖，命令行示例（Windows PowerShell）：
+#   $env:QDRANT_HOST="127.0.0.1"; $env:QDRANT_GRPC_PORT="6334"; mvn spring-boot:run
+# =============================================================================
+server:
+  # 前端 frontend/.env.development 的 VITE_PROXY_TARGET 必须指向同一个端口，
+  # 开发期跨域由 Vite 代理解决，所以这里不需要 CORS。
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: spring-ai-qdrant-rag
+  profiles:
+    # ollama / openai 两段 profile 见文件末尾；不指定时用 ollama。
+    active: ${SPRING_PROFILES_ACTIVE:ollama}
+  servlet:
+    multipart:
+      # 预留：后端实现 POST /api/documents/upload 时生效。前端已在浏览器侧拦到 20MB。
+      max-file-size: ${MULTIPART_MAX_FILE_SIZE:20MB}
+      max-request-size: ${MULTIPART_MAX_REQUEST_SIZE:25MB}
+  ai:
+    # ---- 模型选择（Spring AI 1.x 的正确键名）----
+    model:
+      embedding: ${EMBEDDING_PROVIDER:ollama}
+      chat: ${CHAT_PROVIDER:ollama}
+    vectorstore:
+      qdrant:
+        # host/port 指向 Qdrant 的 gRPC 端口（不是 6333 那个 HTTP/REST 端口）。
+        # 本机实测：6333 有服务（REST + /dashboard 可看数据），gRPC 走 6334。
+        host: ${QDRANT_HOST:localhost}
+        port: ${QDRANT_GRPC_PORT:6334}
+        collection-name: ${QDRANT_COLLECTION:knowledge_base}
+        # initialize-schema=true 只在集合不存在时创建（Cosine + 当前 embedding 模型维度）；
+        # 已存在的集合不会被改动。
+        initialize-schema: true
+        use-tls: false
+        # Qdrant 开了鉴权时才取消注释；空字符串会被当成一个真实 key 发出去，所以不要写成 ${X:}
+        # api-key: ${QDRANT_API_KEY}
+        #
+        # 注意 1：Spring AI 1.1.0 的 QdrantVectorStoreProperties 只有
+        #   collection-name / host / port / use-tls / api-key（+ 公共的 initialize-schema）。
+        #   content-field-name、dimensions 是 2.x 才有的属性，写在 1.1 上不会生效。
+        # 注意 2：向量维度由 embedding 模型决定且固定在建表时。换模型
+        #   （nomic-embed-text 768 维 → text-embedding-3-small 1536 维）必须同时换
+        #   QDRANT_COLLECTION 名字或删掉旧集合，否则写入直接报维度不匹配。
+        # 注意 3：不要直接把这里指向 Dify 那套 Qdrant。Dify 的集合是按租户建的
+        #   （Vector_index_xxx_Node，1024 维，payload 用 group_id/document_id），
+        #   和本项目的 doc_content + tenantId/category 结构不通用，读不出东西。
+        #   真要连远端 Qdrant，先起隧道再用本项目自己的集合名：
+        #   ssh -L 6334:172.21.0.4:6334 ubuntu@1.15.234.108
+    # ---- 说明：CORS 不在这里配 ----
+    # 生产环境两种做法二选一：① 前端 dist 由 Nginx 与后端同域提供（推荐，零 CORS）；
+    # ② 确实要跨域时，必须加一个 WebMvcConfigurer/CorsFilter 的 Java Bean，
+    #    纯 yml 里写 allowed-origins 不会生效。前端工程已按 ① 设计（hash 路由，静态目录直接放）。
+  datasource:
+    # pom 里带了 spring-boot-starter-jdbc + mysql-connector-j，但当前代码没有用到数据源。
+    # 启动不会连库；麻烦在健康检查：actuator 的 db 探针会真去连 MySQL，
+    # 连不上时 /actuator/health 直接变 DOWN（前端状态灯会显示"降级"，这是真实结果不是 bug）。
+    url: ${MYSQL_URL:jdbc:mysql://localhost:3306/rag?useSSL=false&serverTimezone=Asia/Shanghai}
+    username: ${MYSQL_USER:rag}
+    password: ${MYSQL_PASSWORD:rag}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # 前端只用到 health 和 info；要加 metrics 时同步改 frontend/src/api/registry.ts
+        include: health,info
+  endpoint:
+    health:
+      # 关键：不写 always，前端 Dashboard 读不到 health.components，只能看到一个 UP。
+      show-details: always
+      show-groups: true
+  info:
+    env:
+      enabled: true
+  health:
+    db:
+      # 没有部署 MySQL 时置为 false，可以让 /actuator/health 保持 UP（前端会少一个 db 组件）。
+      enabled: ${DB_HEALTH_ENABLED:true}
+
+# 这些键会原样出现在 GET /actuator/info 里（前端 Dashboard「后端与数据链路」面板）
+info:
+  app:
+    name: spring-ai-qdrant-rag
+    description: Spring AI 1.1.0 + Qdrant 向量检索后端
+    java: ${java.version}
+  frontend:
+    repo: ../frontend
+    dev-server: http://127.0.0.1:5173
+# 想要 build/git 信息（时间、commit），在 pom.xml 的 spring-boot-maven-plugin 里加
+# <execution><goals><goal>build-info</goal></goals></execution>，
+# 构建后会多出 info.build.*，无需改这里。
+
+logging:
+  level:
+    root: INFO
+    com.example.rag: INFO
+    # 排查向量写入/检索（含 filterExpression 拼出来的语句）时打开：
+    # org.springframework.ai: DEBUG
+    # org.springframework.web: DEBUG
+---
+spring:
+  config:
+    activate:
+      on-profile: ollama
+  ai:
+    model:
+      embedding: ollama
+      chat: ollama
+    ollama:
+      # 前置条件：本机 Ollama 必须在跑（当前实测 11434 未监听），并且模型已拉取：
+      #   ollama pull nomic-embed-text   # 768 维
+      #   ollama pull llama3.2
+      # 否则 POST /api/vector/add 会在 embedding 阶段 500。
+      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      embedding:
+        options:
+          model: ${OLLAMA_EMBEDDING_MODEL:nomic-embed-text}
+      chat:
+        options:
+          model: ${OLLAMA_CHAT_MODEL:llama3.2}
+---
+spring:
+  config:
+    activate:
+      on-profile: openai
+  ai:
+    model:
+      embedding: openai
+      chat: openai
+    openai:
+      # 这个 profile 激活时 OPENAI_API_KEY 必须有值，缺省会启动失败（Spring AI 不做默认值）。
+      api-key: ${OPENAI_API_KEY}
+      embedding:
+        options:
+          model: ${OPENAI_EMBEDDING_MODEL:text-embedding-3-small}   # 1536 维
+      chat:
+        options:
+          model: ${OPENAI_CHAT_MODEL:gpt-4o-mini}
+
+# =============================================================================
+# 前端契约备忘（frontend/src/api/registry.ts 是唯一事实来源，改接口两边都要动）
+#
+# 已实现，前端已真实接入：
+#   POST /api/vector/add      -> 201 {id, status:"stored"}，id/content/tenantId/category 全 @NotBlank
+#   POST /api/vector/search   -> [{id, content, score, metadata}]，topK 限 1..100，
+#                                VectorService 拼 filterExpression "tenantId == '...'"
+#   GET  /actuator/health     -> 需要 show-details: always 才带 components
+#   GET  /actuator/info       -> 需要 management.info.env.enabled
+#
+# 前端已预留、后端实现后把 registry.ts 对应 status 改成 available 即可：
+#   POST /api/chat/stream（SSE，前端用 fetch+ReadableStream 读，能带 JSON body；
+#                         事件格式 event:/data: + 空行分隔，结束要有 done 标记）
+#   GET/POST/PUT/DELETE /api/conversations、/api/knowledge-bases、/api/documents、
+#   /api/documents/{id}/chunks、/api/chunks/{id}、/api/evaluations、
+#   /api/dashboard/stats、/api/tenants、/api/users
+#
+# 错误体格式已由 common/ApiExceptionHandler 固定，前端按它解析：
+#   400 -> {timestamp, error:"请求参数校验失败"}
+#   500 -> {timestamp, error:"服务处理失败", message}
+#   未实现路径 -> 404，前端识别为「待开发」而不是加载失败
+# =============================================================================
