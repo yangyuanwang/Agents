@@ -65,8 +65,8 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
     name: '知识库列表',
     method: 'GET',
     path: '/api/knowledge-bases',
-    status: 'pending',
-    note: 'Qdrant collection 目前由配置固定为 knowledge_base，没有知识库维度的建模与接口。',
+    status: 'available',
+    note: 'GET /api/knowledge-bases?tenantId={uuid}&page=1&size=20 返回 {items,total,page,size}；开发期租户输入，不代表可信授权。',
     usedBy: ['知识库管理', '首页 Dashboard']
   },
   {
@@ -74,8 +74,8 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
     name: '创建知识库',
     method: 'POST',
     path: '/api/knowledge-bases',
-    status: 'pending',
-    note: '待后端定义知识库与 collection / 分区的关系。',
+    status: 'available',
+    note: 'POST 请求 tenantId/createdBy/name/description，成功 201 并返回知识库 DTO；tenantId/createdBy 为临时开发上下文。',
     usedBy: ['知识库管理']
   },
   {
@@ -83,8 +83,8 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
     name: '编辑知识库',
     method: 'PUT',
     path: '/api/knowledge-bases/{id}',
-    status: 'pending',
-    note: '待开发。',
+    status: 'available',
+    note: 'PUT 请求 name/description，返回更新后的知识库 DTO；已删除或不存在返回 404。',
     usedBy: ['知识库管理']
   },
   {
@@ -92,8 +92,8 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
     name: '删除知识库',
     method: 'DELETE',
     path: '/api/knowledge-bases/{id}',
-    status: 'pending',
-    note: '待开发，需同步清理 Qdrant 向量与源文件。',
+    status: 'available',
+    note: 'DELETE 返回 204；执行逻辑删除并保留关联数据，重复删除或不存在返回 404。',
     usedBy: ['知识库管理']
   },
   {

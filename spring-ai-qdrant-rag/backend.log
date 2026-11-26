@@ -1,0 +1,65 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] ------------------< com.example:spring-ai-qdrant-rag >------------------
+[INFO] Building spring-ai-qdrant-rag 0.0.1-SNAPSHOT
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] >>> spring-boot-maven-plugin:3.5.7:run (default-cli) > test-compile @ spring-ai-qdrant-rag >>>
+[INFO] 
+[INFO] --- maven-resources-plugin:3.3.1:resources (default-resources) @ spring-ai-qdrant-rag ---
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] Copying 0 resource from src\main\resources to target\classes
+[INFO] 
+[INFO] --- maven-compiler-plugin:3.14.1:compile (default-compile) @ spring-ai-qdrant-rag ---
+[INFO] Recompiling the module because of changed source code.
+[INFO] Compiling 44 source files with javac [debug parameters release 17] to target\classes
+[INFO] 
+[INFO] --- maven-resources-plugin:3.3.1:testResources (default-testResources) @ spring-ai-qdrant-rag ---
+[INFO] skip non existing resourceDirectory D:\studyspace\Agent\spring-ai-qdrant-rag\src\test\resources
+[INFO] 
+[INFO] --- maven-compiler-plugin:3.14.1:testCompile (default-testCompile) @ spring-ai-qdrant-rag ---
+[INFO] Recompiling the module because of changed dependency.
+[INFO] Compiling 2 source files with javac [debug parameters release 17] to target\test-classes
+[WARNING] /D:/studyspace/Agent/spring-ai-qdrant-rag/src/test/java/com/example/rag/persistence/PersistenceInfrastructureIntegrationTest.java:[30,6] org.springframework.boot.test.mock.mockito 中的 org.springframework.boot.test.mock.mockito.MockBean 已过时, 且标记为待删除
+[INFO] 
+[INFO] <<< spring-boot-maven-plugin:3.5.7:run (default-cli) < test-compile @ spring-ai-qdrant-rag <<<
+[INFO] 
+[INFO] 
+[INFO] --- spring-boot-maven-plugin:3.5.7:run (default-cli) @ spring-ai-qdrant-rag ---
+[INFO] Attaching agents: []
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v3.5.7)
+
+2026-11-26T11:32:54.304+08:00  INFO 29924 --- [spring-ai-qdrant-rag] [           main] com.example.rag.RagApplication           : Starting RagApplication using Java 17.0.15 with PID 29924 (D:\studyspace\Agent\spring-ai-qdrant-rag\target\classes started by 91947 in D:\studyspace\Agent\spring-ai-qdrant-rag)
+2026-11-26T11:32:54.305+08:00  INFO 29924 --- [spring-ai-qdrant-rag] [           main] com.example.rag.RagApplication           : The following 1 profile is active: "ollama"
+2026-11-26T11:32:55.637+08:00  INFO 29924 --- [spring-ai-qdrant-rag] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8080 (http)
+2026-11-26T11:32:55.650+08:00  INFO 29924 --- [spring-ai-qdrant-rag] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-11-26T11:32:55.650+08:00  INFO 29924 --- [spring-ai-qdrant-rag] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.48]
+2026-11-26T11:32:55.700+08:00  INFO 29924 --- [spring-ai-qdrant-rag] [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-11-26T11:32:55.701+08:00  INFO 29924 --- [spring-ai-qdrant-rag] [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 1364 ms
+2026-11-26T11:32:56.619+08:00  WARN 29924 --- [spring-ai-qdrant-rag] [           main] io.qdrant.client.QdrantGrpcClient        : Failed to obtain server version. Unable to check client-server compatibility. Set checkCompatibility=false to skip version check.
+2026-11-26T11:32:57.546+08:00  INFO 29924 --- [spring-ai-qdrant-rag] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-11-26T11:32:57.677+08:00  INFO 29924 --- [spring-ai-qdrant-rag] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@2b764c63
+2026-11-26T11:32:57.678+08:00  INFO 29924 --- [spring-ai-qdrant-rag] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-11-26T11:32:57.712+08:00  INFO 29924 --- [spring-ai-qdrant-rag] [           main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:mysql://127.0.0.1:3306/rag?useSSL=false&serverTimezone=Asia/Shanghai (MySQL 8.0)
+2026-11-26T11:32:57.745+08:00  INFO 29924 --- [spring-ai-qdrant-rag] [           main] o.f.core.internal.command.DbValidate     : Successfully validated 1 migration (execution time 00:00.017s)
+2026-11-26T11:32:57.755+08:00  INFO 29924 --- [spring-ai-qdrant-rag] [           main] o.f.core.internal.command.DbMigrate      : Current version of schema `rag`: 1
+2026-11-26T11:32:57.758+08:00  INFO 29924 --- [spring-ai-qdrant-rag] [           main] o.f.core.internal.command.DbMigrate      : Schema `rag` is up to date. No migration necessary.
+2026-11-26T11:32:57.771+08:00  INFO 29924 --- [spring-ai-qdrant-rag] [           main] b.m.s.MybatisPlusApplicationContextAware : Register ApplicationContext instances org.springframework.boot.web.servlet.context.AnnotationConfigServletWebServerApplicationContext@5d8bafa9
+2026-11-26T11:32:57.948+08:00  INFO 29924 --- [spring-ai-qdrant-rag] [           main] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 2 endpoints beneath base path '/actuator'
+2026-11-26T11:32:58.328+08:00  INFO 29924 --- [spring-ai-qdrant-rag] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8080 (http) with context path '/'
+2026-11-26T11:32:58.341+08:00  INFO 29924 --- [spring-ai-qdrant-rag] [           main] com.example.rag.RagApplication           : Started RagApplication in 4.391 seconds (process running for 4.676)
+2026-11-26T11:33:02.592+08:00  INFO 29924 --- [spring-ai-qdrant-rag] [nio-8080-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-11-26T11:33:02.592+08:00  INFO 29924 --- [spring-ai-qdrant-rag] [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-11-26T11:33:02.594+08:00  INFO 29924 --- [spring-ai-qdrant-rag] [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 0 ms
+2026-11-26T11:34:03.092+08:00  INFO 29924 --- [spring-ai-qdrant-rag] [nio-8080-exec-1] com.example.rag.service.VectorService    : 向量写入成功 id=1bb47a19-5414-4bc2-b045-fe9ecbc5d255, tenantId=default, category=safety
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------

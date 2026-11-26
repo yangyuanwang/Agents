@@ -22,6 +22,15 @@ server:
   # 开发期跨域由 Vite 代理解决，所以这里不需要 CORS。
   port: ${SERVER_PORT:8080}
 
+app:
+  file:
+    storage-root: ${FILE_STORAGE_ROOT:./data/files}
+    max-size-bytes: ${FILE_MAX_SIZE_BYTES:20971520}
+    allowed-extensions: ${FILE_ALLOWED_EXTENSIONS:pdf,docx,txt,md}
+    cleanup:
+      retry-interval-ms: ${FILE_CLEANUP_RETRY_INTERVAL_MS:300000}
+      batch-size: ${FILE_CLEANUP_BATCH_SIZE:100}
+
 spring:
   application:
     name: spring-ai-qdrant-rag
@@ -33,24 +42,44 @@ spring:
       # 预留：后端实现 POST /api/documents/upload 时生效。前端已在浏览器侧拦到 20MB。
       max-file-size: ${MULTIPART_MAX_FILE_SIZE:20MB}
       max-request-size: ${MULTIPART_MAX_REQUEST_SIZE:25MB}
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 1
+    validate-on-migrate: true
+    clean-disabled: true
   ai:
     # ---- 模型选择（Spring AI 1.x 的正确键名）----
+    # 本项目只用到 embedding + chat。pom 里同时引入了 openai 与 ollama 两个 starter，
+    # 而 OpenAI 的语音/图像/审核自动配置默认是开启的（matchIfMissing=true），
+    # 一旦没有 spring.ai.openai.api-key 就会在启动时抛 "OpenAI API key must be set"。
+    # 所以这里把用不到的类型显式关掉（none），与用哪个 profile 无关。
     model:
       embedding: ${EMBEDDING_PROVIDER:ollama}
       chat: ${CHAT_PROVIDER:ollama}
+      image: none
+      moderation: none
+      audio:
+        speech: none
+        transcription: none
     vectorstore:
       qdrant:
-        # host/port 指向 Qdrant 的 gRPC 端口（不是 6333 那个 HTTP/REST 端口）。
-        # 本机实测：6333 有服务（REST + /dashboard 可看数据），gRPC 走 6334。
-        host: ${QDRANT_HOST:localhost}
+        # 接的是 Dify 那台服务器的 Qdrant（容器 172.21.0.4，未对公网开放），本机走 SSH 隧道：
+        #   python .deploy/tunnel.py（Dify 项目里的脚本，已加 6334 转发）
+        #   127.0.0.1:6333 -> REST + /dashboard
+        #   127.0.0.1:6334 -> gRPC，Spring AI 走这个
+        # 必须写 127.0.0.1 而不是 localhost：Windows 上 localhost 可能先解析到 ::1，隧道只监听 IPv4。
+        host: ${QDRANT_HOST:127.0.0.1}
         port: ${QDRANT_GRPC_PORT:6334}
         collection-name: ${QDRANT_COLLECTION:knowledge_base}
         # initialize-schema=true 只在集合不存在时创建（Cosine + 当前 embedding 模型维度）；
-        # 已存在的集合不会被改动。
+        # 已存在的集合不会被改动。集合不存在时会调用 embeddingModel.dimensions()——
+        # 那是一次真实的 embedding 请求，Ollama 没起会直接导致启动失败。
         initialize-schema: true
         use-tls: false
-        # Qdrant 开了鉴权时才取消注释；空字符串会被当成一个真实 key 发出去，所以不要写成 ${X:}
-        # api-key: ${QDRANT_API_KEY}
+        # 服务器 Qdrant 开了鉴权（环境变量 QDRANT__SERVICE__API_KEY），这里就是那个 key。
+        # 生产环境请改成环境变量注入，不要留在文件里。
+        api-key: ${QDRANT_API_KEY:fa7ee563ea8cba7e5122a31415dbd9f8}
         #
         # 注意 1：Spring AI 1.1.0 的 QdrantVectorStoreProperties 只有
         #   collection-name / host / port / use-tls / api-key（+ 公共的 initialize-schema）。
@@ -68,12 +97,23 @@ spring:
     # ② 确实要跨域时，必须加一个 WebMvcConfigurer/CorsFilter 的 Java Bean，
     #    纯 yml 里写 allowed-origins 不会生效。前端工程已按 ① 设计（hash 路由，静态目录直接放）。
   datasource:
-    # pom 里带了 spring-boot-starter-jdbc + mysql-connector-j，但当前代码没有用到数据源。
-    # 启动不会连库；麻烦在健康检查：actuator 的 db 探针会真去连 MySQL，
-    # 连不上时 /actuator/health 直接变 DOWN（前端状态灯会显示"降级"，这是真实结果不是 bug）。
     url: ${MYSQL_URL:jdbc:mysql://localhost:3306/rag?useSSL=false&serverTimezone=Asia/Shanghai}
-    username: ${MYSQL_USER:rag}
-    password: ${MYSQL_PASSWORD:rag}
+    username: ${MYSQL_USER:root}
+    password: ${MYSQL_PASSWORD:123456}
+    hikari:
+      maximum-pool-size: ${MYSQL_POOL_SIZE:10}
+      minimum-idle: ${MYSQL_MIN_IDLE:2}
+      connection-timeout: 30000
+      validation-timeout: 5000
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    jdbc-type-for-null: 'NULL'
+  type-handlers-package: com.example.rag.persistence.typehandler
+  global-config:
+    banner: false
+  mapper-locations: classpath*:/mapper/**/*.xml
 
 management:
   endpoints:
@@ -124,11 +164,13 @@ spring:
       embedding: ollama
       chat: ollama
     ollama:
-      # 前置条件：本机 Ollama 必须在跑（当前实测 11434 未监听），并且模型已拉取：
+      # 前置条件：Ollama 服务必须可达（现在部署在 Dify 那台服务器上，本机通过 SSH 隧道
+      #   127.0.0.1:11434 访问；隧道在 Dify 项目 .deploy/tunnel.py 里），并已拉取模型：
       #   ollama pull nomic-embed-text   # 768 维
       #   ollama pull llama3.2
       # 否则 POST /api/vector/add 会在 embedding 阶段 500。
-      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      # 同样写 127.0.0.1 而不是 localhost：Windows 可能先解析到 ::1，隧道只监听 IPv4。
+      base-url: ${OLLAMA_BASE_URL:http://127.0.0.1:11434}
       embedding:
         options:
           model: ${OLLAMA_EMBEDDING_MODEL:nomic-embed-text}
@@ -158,7 +200,8 @@ spring:
 # 前端契约备忘（frontend/src/api/registry.ts 是唯一事实来源，改接口两边都要动）
 #
 # 已实现，前端已真实接入：
-#   POST /api/vector/add      -> 201 {id, status:"stored"}，id/content/tenantId/category 全 @NotBlank
+#   POST /api/vector/add      -> 201 {id, status:"stored"}，id/content/tenantId/category 全 @NotBlank；
+#                                id 必须是 UUID（Qdrant point id 限制，前端 DocumentView 已用 newUuid 生成）
 #   POST /api/vector/search   -> [{id, content, score, metadata}]，topK 限 1..100，
 #                                VectorService 拼 filterExpression "tenantId == '...'"
 #   GET  /actuator/health     -> 需要 show-details: always 才带 components

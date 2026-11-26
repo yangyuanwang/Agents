@@ -37,7 +37,7 @@ $env:SPRING_PROFILES_ACTIVE='ollama'
 mvn spring-boot:run
 ```
 
-OpenAI 可单独切换：设置 `SPRING_PROFILES_ACTIVE=openai`、`OPENAI_API_KEY`，并可用 `OPENAI_EMBEDDING_MODEL` / `OPENAI_CHAT_MODEL` 覆盖模型。API Key 仅从环境变量读取。Embedding 与 Chat 配置独立，替换其他供应商时使用其 Spring AI starter、对应 provider 配置和独立 `EMBEDDING_PROVIDER` / `CHAT_PROVIDER`，Qdrant VectorStore 无需变更。MySQL JDBC 驱动与连接占位配置为后续业务阶段预留；本阶段不要求 MySQL 在线，也未实现业务表。
+OpenAI 可单独切换：设置 `SPRING_PROFILES_ACTIVE=openai`、`OPENAI_API_KEY`，并可用 `OPENAI_EMBEDDING_MODEL` / `OPENAI_CHAT_MODEL` 覆盖模型。API Key 仅从环境变量读取。Embedding 与 Chat 配置独立，替换其他供应商时使用其 Spring AI starter、对应 provider 配置和独立 `EMBEDDING_PROVIDER` / `CHAT_PROVIDER`，Qdrant VectorStore 无需变更。MySQL 持久化基础设施已接入：Hikari 数据源、MyBatis-Plus、17 个 Entity/Mapper、BINARY(16) UUID TypeHandler、MySQL 分页插件、事务管理和 Flyway baseline。rag schema 基线为版本 1；不启用自动建表/更新。连接通过 MYSQL_URL、MYSQL_USER、MYSQL_PASSWORD 环境变量配置。
 
 ## 接口
 
@@ -82,4 +82,13 @@ curl -X POST localhost:8080/api/vector/search -H 'Content-Type: application/json
 
 ## 范围
 
-已完成 Qdrant 持久化环境、Spring AI Qdrant VectorStore、Embedding 写入、相似度搜索、Payload metadata filter、强制 tenantId 隔离、异常处理与接口示例。尚未实现 RAG 文档解析/切分、Chat 问答链、认证授权、MySQL 业务模型及自动化集成测试。
+### 持久化基础设施约定
+
+- Entity 以部署的 MySQL DDL 为准；每表独立字段，不强行继承同一公共字段基类。
+- UUID 主键由应用生成，统一使用 `UuidBinaryTypeHandler` 转换 RFC 4122 network-order `BINARY(16)`。
+- 普通表 Mapper 使用 MyBatis-Plus `BaseMapper`；ChunkVector 使用复合键专用 Mapper 方法，不调用单列 `selectById`。
+- 分页使用 `MyBatisPlusInterceptor`；写入/更新使用 Spring `@Transactional`。调用方 tenantId 不可信，业务 Repository 必须从认证上下文取得租户范围并在查询条件中显式约束。
+- Flyway 对现有非空 schema 自动 baseline 为版本 1，`clean` 禁用；后续结构变化新增版本迁移，不使用 schema auto-update。
+
+已完成 Qdrant VectorStore、Embedding 写入/相似度搜索、Payload tenant filter，以及 MySQL 持久层基础设施。尚未实现用户/租户/知识库业务 Repository 服务、动态租户授权、文件上传与 FileObject 行锁清理、Document/Version 处理流水线、Chunk/ChunkVector 同步、Chat/Citation、审计配额和认证授权。基础持久化集成测试在本机 MySQL 验证；运行现有 Qdrant 服务后才能验证原向量功能。
+

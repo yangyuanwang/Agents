@@ -6,9 +6,11 @@
 
 - [`requirements/README.md`](requirements/README.md)：能力状态、规划和待确认需求。
 - [`architecture/README.md`](architecture/README.md)：架构、接口、RAG 流程和安全现状。
+- [`architecture/consistency-analysis.md`](architecture/consistency-analysis.md)：13 项决策的一致性分析、冲突和 PENDING 清单。
 - [`database/README.md`](database/README.md)：MySQL/Qdrant 现状及待确认的业务关系。
 - [`development/README.md`](development/README.md)、[`development/tech-stack.md`](development/tech-stack.md)：开发约定与技术栈基线。
-- [`decisions/README.md`](decisions/README.md)：决策记录约定。
+- [`integration/frontend-backend-contract.md`](integration/frontend-backend-contract.md)：前端工程规范与前后端接口契约；后续所有业务接口开发必须遵循，涵盖 registry 状态、DTO 转换、统一请求响应、SSE 与真实接口验证。
+- [`decisions/README.md`](decisions/README.md)：ADR-001 至 ADR-013 索引和决策记录约定。
 - [`tasks/README.md`](tasks/README.md)：建议开发阶段与优先级任务。
 
 协作规则见根目录 [`AGENTS.md`](../AGENTS.md)。每项任务先读根规则与本文件，再按需选择相关文档。
@@ -19,7 +21,7 @@
 - 后端 Spring Boot 3.5.7 + Spring AI 1.1.0，目前实现向量写入、带 tenantId metadata filter 的相似度检索及 Actuator health/info。
 - Qdrant 由 Docker Compose 提供，HTTP 6333、gRPC 6334，命名卷持久化。
 - MySQL 只有 JDBC 依赖和连接配置；未发现业务实体、Repository、DDL 或迁移。
-- 登录认证、授权、文档处理和 Chat/RAG 问答未实现或待确认。
+- 登录认证/授权是 Accepted 目标架构但当前代码未实现；权限细节中的开放项见 ADR。文档处理和 Chat/RAG 主流程也尚未实现。
 
 ## 维护原则
 

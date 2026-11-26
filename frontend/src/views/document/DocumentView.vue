@@ -8,7 +8,7 @@ import { isApiError, isPendingError } from '@/api/http'
 import { deleteDocument, listDocuments, uploadDocument } from '@/api/document'
 import { addVector } from '@/api/vector'
 import { useTenantStore } from '@/stores/tenant'
-import { formatBytes, newId } from '@/utils/format'
+import { formatBytes, newUuid } from '@/utils/format'
 import type { RagDocument } from '@/types/domain'
 
 const tenant = useTenantStore()
@@ -22,7 +22,7 @@ const uploading = ref(false)
 
 /** 已接入能力：手工把单个片段写入向量库，走 POST /api/vector/add。 */
 const writer = reactive({
-  id: newId('chunk'),
+  id: newUuid(),
   content: '',
   category: 'general',
   saving: false,
@@ -109,7 +109,7 @@ async function saveChunk() {
     })
     writer.result = `已写入：id=${response.id}，status=${response.status}`
     ElMessage.success('片段已向量化并写入 Qdrant')
-    writer.id = newId('chunk')
+    writer.id = newUuid()
     writer.content = ''
   } catch (error) {
     ElMessage.error(isApiError(error) ? `${error.message}${error.detail ? `：${error.detail}` : ''}` : String(error))
@@ -195,7 +195,7 @@ onMounted(load)
         </div>
 
         <el-form label-position="top">
-          <el-form-item label="片段 id（后端 @NotBlank，重复 id 会覆盖同一条向量）">
+          <el-form-item label="片段 id（必须是 UUID，重复 id 会覆盖同一条向量）">
             <el-input v-model="writer.id" class="app-mono" />
           </el-form-item>
           <el-form-item label="片段内容（会被 Embedding 模型转成向量）">

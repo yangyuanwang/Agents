@@ -1,78 +1,66 @@
-# 开发阶段与优先级任务
+# 架构落地阶段与任务路线
 
-这是按当前代码缺口整理的建议计划，不是已批准路线图。优先级和验收标准待项目负责人确认；实现前先确认需求、API 契约与数据模型。
+本计划以 13 份 Accepted ADR 为目标基线；Accepted 表示已确认，不表示实施完成。未决事项必须按 ADR 标为 PENDING，不能由开发自行填补。当前代码实现状态见 [`../architecture/README.md`](../architecture/README.md)。
 
-## 阶段 0：基线梳理（本轮文档整理已完成）
+## 阶段 0：决策与架构基线（文档已完成）
 
-- 记录前后端技术栈、模块和接口边界。
-- 记录 RAG 流程实现状态、安全风险与业务关系草案。
-- 本轮为源码/config 静态核对，未运行集成验证。
+- ADR-001 至 ADR-013 已正式整理为 Accepted。
+- 一致性分析 C1-C5 已协调为实现约束或保留 PENDING，详见 [`../architecture/consistency-analysis.md`](../architecture/consistency-analysis.md)。
+- 数据库文档仍是逻辑模型草案，不是最终 ER/DDL。
 
-## P0：安全与基础架构决策
+## 阶段 1：基础工程与认证授权
 
-1. 确认认证授权方案、角色模型和匿名接口范围；当前没有登录/JWT/Spring Security，不预设具体技术方案。
-2. 定义可信租户上下文；服务端应将认证主体与检索、写入的租户权限绑定。当前只按客户端 tenantId 过滤，不能作为授权边界。
-3. 确认 User/Tenant/KnowledgeBase/Member/Document/Chunk/Chat 数据模型，以及 MySQL 与 Qdrant 的职责、迁移策略；确认前不建表。
-4. 核定生产 Actuator 策略：当前 `health.show-details: always`，确认匿名是否可见组件详情及未部署 MySQL 时健康状态预期。
-5. 确定统一 API 成功/错误结构、生产代理/同域部署与 CORS 策略。
+- 实现 Spring Security + JWT、User 和 TenantMember 认证/会话链路。
+- 实现租户与 KB 授权上下文，所有业务 API 依据可信身份校验，拒绝信任请求 tenantId/userId。
+- 落实统一 API envelope、traceId、错误体系、审计、限流和 Actuator 最小端点。
+- 前置：Token 生命周期、系统管理员边界、KB role matrix 等 PENDING 安全细节；由负责人确认后实现。
 
-## P1：核心业务闭环
+## 阶段 2：MySQL 业务模型与知识库管理
 
-1. 文档上传、原件存储和文件校验。
-2. 文档解析、切片、异步状态、失败重试与可观测性。
-3. Chunk/Qdrant Point 映射与 tenant/knowledgeBase/document metadata filter，及删除一致性策略。
-4. 知识库、文档和切片 API 与业务元数据持久化。
-5. Chat 后端：Query embedding、检索、Prompt 组装、ChatModel 生成、引用来源与 POST SSE；先确认事件协议、错误和断开取消行为。
-6. ChatSession/ChatMessage 持久化和租户授权。
-7. 前端 pending 接口按已确认契约逐项联调，并同步更新 API registry 与 Workspace 文档。
+- 在逻辑实体评审基础上确定 ER、字段、索引、主键、迁移工具和结构基准。
+- 实现 Tenant/KB/KB member 元数据 API 与权限。
+- 明确 KB 当前 active Embedding Profile 的解析和切换路由。
+- 前置：系统级/知识库权限边界、ChunkVector 持久化形态等相关 PENDING。
 
-## P2：管理、质量与扩展
+## 阶段 3：文件、文档版本和任务
 
-1. 租户/用户管理 API 与界面（依赖认证和数据模型决策）。
-2. Dashboard 聚合指标及统计口径。
-3. 评估数据集、检索指标、可选 LLM 评价和历史记录。
-4. 分页排序、审计、体验和性能优化。
-5. 自动化单元/集成测试、Qdrant/MySQL 环境验证、部署与备份演练。
+- 实现本地文件适配器及受控对象 key；文档 API/版本状态和 MySQL ProcessingTask。
+- 实现 Worker 定时领取、lease/恢复、幂等及受控重试。
+- 处理 SHA-256 复用、引用关系、物理清理时机前需关闭 ADR-005 PENDING。
+- 区分 Document 资源状态、DocumentVersion 产物状态和 ProcessingTask 执行状态；具体枚举转移需评审。
 
-## 依赖与验收原则
+## 阶段 4：解析、切片和 Qdrant 索引
 
-- P0 的安全和模型决策是 P1 持久化/API 实现的前置条件。
-- 页面可打开不算端到端完成；需要验证真实后端接口和持久化。
-- 多租户验收需验证越权读写，并基于可信身份上下文，而非只变更请求 tenantId。
-- 数据库变更同步基准结构和迁移文档；API/流程变化同步 architecture、requirements 与开发契约。
-- 具体迭代范围与验收标准待确认。
+- 实现 PDF/DOCX/TXT/Markdown 解析、Chunk 文本持久化和 Embedding Profile index。
+- 按 Profile 写入 Collection，记录 point/index 状态；新版验证后切 active，失败保留旧版本。
+- 使 Document 逻辑删除后检索立即过滤，再异步清理 Qdrant/文件并重试对账。
+- 前置：ChunkVector 逻辑持久化形态、Profile 字段及迁移期间增量同步 PENDING。
 
-## 架构决策确认清单（进入数据库设计前）
+## 阶段 5：Chat/RAG、Citation 与 SSE
 
-1. 用户是否允许加入多个租户；活动租户选择规则；TenantMembership 及租户内角色。
-2. 认证方式与身份提供方；系统管理员、租户管理员、普通成员权限；匿名注册/邀请流程。
-3. tenantId 如何绑定已认证主体；所有 tenant-scoped API 的强制授权策略及 Actuator 公开范围。
-4. KnowledgeBase 是否严格归属单一租户；成员权限角色与共享/跨租户知识库是否允许。
-5. Qdrant Collection 选型：按租户、按知识库或共享 Collection + Payload filter；embedding profile 是否决定 Collection 边界。
-6. 文件存储位置、支持格式/限制、文档状态机、同步/异步处理、重试和原件保留周期。
-7. Chunk 全文是否保存在 MySQL；Point ID 与业务 ID 映射；向量 payload 字段及文档重处理/删除补偿语义。
-8. embedding profile 需记录哪些 provider/model/revision/dimension 信息，以及模型升级时是否允许双 Collection 灰度。
-9. 会话/消息持久化范围、Chat 历史上下文策略、检索引用保存快照与隐私保留期限。
-10. POST SSE 事件协议（token、citation、done、error）、断连时生成是否取消、assistant 消息如何标记部分输出。
-11. MySQL 目标版本、迁移工具、备份恢复与一致性任务的运行方式。
+- 会话和消息持久化，访问时重验 tenant/user/KB 权限。
+- 实现 query embedding、profile 路由、强制 metadata filter、删除状态门禁、Prompt 与 ChatModel。
+- 实现已确认事件名 `message_start`、`delta`、`citation`、`done`、`error`，缓冲并批量落库。
+- 前置：SSE 断线恢复/事件去重、Chat 与 Citation 保留策略、具体模型供应商等 PENDING。
 
-未得到确认前，database 文档中的实体字段和关系均保持建议草案；不得落成 DDL 或应用实体。
+## 阶段 6：生命周期、配额与治理
 
-## 后续任务依赖图
+- 文档删除异步清理、消息/引用和审计按各自保留策略清理。
+- 实现租户资源配额和超限处理；相关默认值 PENDING。
+- 增加清理失败重试、周期对账、审计与安全操作追踪。
 
-```mermaid
-flowchart LR
- A[负责人确认业务/安全决策] --> B[批准 ER 与存储边界]
- B --> C[批准 API / 状态机 / SSE 契约]
- C --> D[数据库基准与迁移方案评审]
- D --> E[认证授权与可信 tenant context]
- E --> F[知识库/文档元数据 API]
- F --> G[文件存储和处理 worker]
- G --> H[Chunk + Qdrant 版本化入库/清理]
- E --> I[Chat 检索生成与 SSE]
- H --> I
- I --> J[前端联调与端到端验收]
- J --> K[评估、Dashboard、管理能力]
-```
+## 阶段 7：部署与备份恢复
 
-其中数据库 DDL/迁移仅在模型批准且获得实施任务后开展；本次只完成设计文档，不表示任何阶段已进入编码。
+- Compose DEV/TEST/PROD 部署隔离；Actuator + Micrometer。
+- 联合备份 MySQL、原始文件和各 Profile Qdrant Collection；进行定期恢复演练与一致性检查。
+- 前置：MySQL 版本、秘密管理、RPO/RTO 与备份保留 PENDING。
+
+## 阶段 8：容量压测和验收
+
+- 验证 100 租户、1000 用户、20 Chat、5 Worker 和普通 API P95 500ms 规划目标。
+- 分开测 API、租户公平性、Worker、Embedding provider、LLM Chat 并发；避免批量 embedding 挤占 Chat 资源。
+- 定义负载数据、API 范围、统计窗口、模型供应商限额及 SSE 首 token/完成延迟口径后再验收。目标当前未压测验证。
+
+## 依赖关系与约束
+
+认证/租户权限先于任何真实多租户业务；数据库迁移前先完成逻辑模型和 PENDING 取舍；文件/任务为解析和切片前置；Chunk/Profile 映射和增量机制先于安全迁移；有检索索引及权限门禁后再完成 Chat/RAG；数据生命周期和联合备份需覆盖新增存储。不得在本阶段执行数据库设计、建表或迁移。

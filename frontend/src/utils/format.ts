@@ -85,3 +85,21 @@ export function newId(prefix: string): string {
   }
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}`
 }
+
+/**
+ * 纯 UUID（不带前缀）。Qdrant 的 point id 只接受 UUID 或无符号整数，
+ * 带前缀的 newId('chunk_xxx') 会被后端 500 拒绝（Invalid UUID string）。
+ * 写向量的片段 id 必须用这个。
+ */
+export function newUuid(): string {
+  const cryptoRef = globalThis.crypto
+  if (cryptoRef && 'randomUUID' in cryptoRef) {
+    return cryptoRef.randomUUID()
+  }
+  // RFC4122 v4 兜底（老浏览器 / 非安全上下文）
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0
+    const v = c === 'x' ? r : (r & 0x3) | 0x8
+    return v.toString(16)
+  })
+}
