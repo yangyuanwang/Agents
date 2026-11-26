@@ -20,7 +20,7 @@ class Sha256BinaryMySqlIntegrationTest {
  @Autowired FileObjectMapper files; @Autowired DocumentVersionMapper versions; @Autowired DocumentMapper documents; @Autowired ChunkMapper chunks;
  @Autowired KnowledgeBaseMapper kbs; @Autowired TenantMapper tenants; @Autowired UserMapper users; @Autowired JdbcTemplate jdbc; @Autowired Flyway flyway;
  @Test void fullSha256Binary32RoundTripsAndQueriesWithoutCollisions(){
-  assertEquals("2",flyway.info().current().getVersion().getVersion());
+  assertEquals("3",flyway.info().current().getVersion().getVersion());
   UUID tenant=UUID.randomUUID(),user=UUID.randomUUID(),kb=UUID.randomUUID(),doc=UUID.randomUUID(),f1=UUID.randomUUID(),f2=UUID.randomUUID(),v1=UUID.randomUUID(),v2=UUID.randomUUID(),chunkId=UUID.randomUUID();
   String marker="sha256-test-"+UUID.randomUUID();LocalDateTime now=LocalDateTime.now();
   byte[] zero=new byte[32];byte[] high=new byte[32];for(int i=0;i<32;i++)high[i]=(byte)(0x80+i);
@@ -48,5 +48,5 @@ class Sha256BinaryMySqlIntegrationTest {
  }
  private void insertFile(UUID id,UUID tenant,String key,byte[] hash,LocalDateTime n){FileObjectEntity f=new FileObjectEntity();f.setId(id);f.setTenantId(tenant);f.setStorageKey(key);f.setSha256(hash);f.setByteSize(1L);f.setMediaType("text/plain");f.setStorageStatus("AVAILABLE");f.setCreatedAt(n);f.setUpdatedAt(n);assertEquals(1,files.insert(f));}
  private static DocumentVersionEntity version(UUID id,UUID doc,UUID tenant,UUID file,UUID user,byte[] hash,int version,LocalDateTime n){DocumentVersionEntity v=new DocumentVersionEntity();v.setId(id);v.setDocumentId(doc);v.setVersionNo(version);v.setTenantId(tenant);v.setSourceFileId(file);v.setSourceSha256(hash);v.setMediaType("text/plain");v.setByteSize(1L);v.setStatus("UPLOADED");v.setCreatedBy(user);v.setCreatedAt(n);return v;}
- private static byte[] bytes(UUID id){var b=java.nio.ByteBuffer.allocate(16);b.putLong(id.getMostSignificantBits()).putLong(id.getLeastSignificantBits());return b.array();}
+ private static String bytes(UUID id){return id.toString();}
 }

@@ -55,7 +55,7 @@ class KnowledgeBaseMapperIntegrationTest {
             kb.setName(token); kb.setDescription("before"); kb.setStatus("ACTIVE"); kb.setCreatedBy(userId);
             kb.setCreatedAt(now); kb.setUpdatedAt(now);
             assertEquals(1, knowledgeBaseMapper.insert(kb));
-            assertEquals(16, jdbc.queryForObject("SELECT LENGTH(id) FROM knowledge_base WHERE id = ?", Integer.class, uuidBytes(kbId)));
+            assertEquals(36, jdbc.queryForObject("SELECT CHAR_LENGTH(id) FROM knowledge_base WHERE id = ?", Integer.class, uuidBytes(kbId)));
             assertEquals(kbId, knowledgeBaseMapper.selectById(kbId).getId());
             assertEquals(1, knowledgeBaseMapper.selectCount(new QueryWrapper<KnowledgeBaseEntity>().eq("tenant_id", tenantId).eq("id", kbId)));
             kb.setDescription("after"); kb.setUpdatedAt(now.plusSeconds(1));
@@ -79,9 +79,5 @@ class KnowledgeBaseMapperIntegrationTest {
         }
     }
 
-    private static byte[] uuidBytes(UUID id) {
-        java.nio.ByteBuffer b = java.nio.ByteBuffer.allocate(16);
-        b.putLong(id.getMostSignificantBits()).putLong(id.getLeastSignificantBits());
-        return b.array();
-    }
+    private static String uuidBytes(UUID id) { return id.toString(); }
 }

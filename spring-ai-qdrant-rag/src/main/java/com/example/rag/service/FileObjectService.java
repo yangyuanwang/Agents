@@ -75,7 +75,7 @@ public class FileObjectService {
     @Transactional(readOnly=true)
     public FileObjectResponse get(UUID knowledgeBaseId,UUID fileId){
         KnowledgeBaseEntity kb=knowledgeBases.selectById(knowledgeBaseId);if(kb==null)throw new ResponseStatusException(HttpStatus.NOT_FOUND,"知识库不存在");
-        Integer linked=jdbc.queryForObject("SELECT COUNT(*) FROM document d JOIN document_version dv ON dv.document_id=d.id AND dv.tenant_id=d.tenant_id WHERE d.knowledge_base_id=? AND d.tenant_id=? AND d.deleted_at IS NULL AND dv.source_file_id=?",Integer.class,uuidBytes(knowledgeBaseId),uuidBytes(kb.getTenantId()),uuidBytes(fileId));
+        Integer linked=jdbc.queryForObject("SELECT COUNT(*) FROM document d JOIN document_version dv ON dv.document_id=d.id AND dv.tenant_id=d.tenant_id WHERE d.knowledge_base_id=? AND d.tenant_id=? AND d.deleted_at IS NULL AND dv.source_file_id=?",Integer.class,knowledgeBaseId.toString(),kb.getTenantId().toString(),fileId.toString());
         if(linked==null||linked==0)throw new ResponseStatusException(HttpStatus.NOT_FOUND,"知识库中不存在该文件");
         FileObjectEntity f=files.selectOne(new QueryWrapper<FileObjectEntity>().eq("id",fileId).eq("tenant_id",kb.getTenantId()));
         if(f==null)throw new ResponseStatusException(HttpStatus.NOT_FOUND,"文件不存在");return map(f);
@@ -83,26 +83,24 @@ public class FileObjectService {
     @Transactional
     public int claimForDeletion(UUID fileId){
         FileObjectEntity f=files.selectByIdForUpdate(fileId);if(f==null||!"AVAILABLE".equals(f.getStorageStatus()))return 0;
-        Integer refs=jdbc.queryForObject("SELECT COUNT(*) FROM document_version WHERE tenant_id=? AND source_file_id=?",Integer.class,uuidBytes(f.getTenantId()),uuidBytes(fileId));
+        Integer refs=jdbc.queryForObject("SELECT COUNT(*) FROM document_version WHERE tenant_id=? AND source_file_id=?",Integer.class,f.getTenantId().toString(),fileId.toString());
         if(refs!=null&&refs>0)return 0;
-        return jdbc.update("UPDATE file_object SET storage_status='DELETING',updated_at=? WHERE id=? AND storage_status='AVAILABLE'",LocalDateTime.now(),uuidBytes(fileId));
+        return jdbc.update("UPDATE file_object SET storage_status='DELETING',updated_at=? WHERE id=? AND storage_status='AVAILABLE'",LocalDateTime.now(),fileId.toString());
     }
     @Transactional
     public boolean cleanupClaimed(UUID fileId){
         FileObjectEntity f=files.selectByIdForUpdate(fileId);if(f==null||!"DELETING".equals(f.getStorageStatus()))return false;
-        Integer refs=jdbc.queryForObject("SELECT COUNT(*) FROM document_version WHERE tenant_id=? AND source_file_id=?",Integer.class,uuidBytes(f.getTenantId()),uuidBytes(fileId));if(refs!=null&&refs>0)return false;
+        Integer refs=jdbc.queryForObject("SELECT COUNT(*) FROM document_version WHERE tenant_id=? AND source_file_id=?",Integer.class,f.getTenantId().toString(),fileId.toString());if(refs!=null&&refs>0)return false;
         try { storage.delete(f.getStorageKey()); }
-        catch(IOException ex){jdbc.update("UPDATE file_object SET updated_at=? WHERE id=?",LocalDateTime.now(),uuidBytes(fileId));return false;}
-        jdbc.update("UPDATE file_object SET storage_status='DELETED',deleted_at=?,updated_at=? WHERE id=?",LocalDateTime.now(),LocalDateTime.now(),uuidBytes(fileId));return true;
+        catch(IOException ex){jdbc.update("UPDATE file_object SET updated_at=? WHERE id=?",LocalDateTime.now(),fileId.toString());return false;}
+        jdbc.update("UPDATE file_object SET storage_status='DELETED',deleted_at=?,updated_at=? WHERE id=?",LocalDateTime.now(),LocalDateTime.now(),fileId.toString());return true;
     }
     public int retryCleanupBatch(){
-        List<UUID> ids=jdbc.query("SELECT id FROM file_object WHERE storage_status='DELETING' AND updated_at<=? ORDER BY updated_at LIMIT ?",(rs,row)->fromBytes(rs.getBytes(1)),LocalDateTime.now().minusNanos(properties.getCleanupRetryIntervalMs()*1_000_000),properties.getCleanupBatchSize());
+        List<UUID> ids=jdbc.query("SELECT id FROM file_object WHERE storage_status='DELETING' AND updated_at<=? ORDER BY updated_at LIMIT ?",(rs,row)->UUID.fromString(rs.getString(1)),LocalDateTime.now().minusNanos(properties.getCleanupRetryIntervalMs()*1_000_000),properties.getCleanupBatchSize());
         int done=0;for(UUID id:ids){try{if(Boolean.TRUE.equals(transactions.execute(s->cleanupClaimed(id))))done++;}catch(Exception ignored){/* retry on next scan; keep DELETING */}}return done;
     }
     private FileObjectEntity findByHashForUpdate(UUID tenant,byte[] hash){return files.selectOne(new QueryWrapper<FileObjectEntity>().eq("tenant_id",tenant).eq("sha256",hash).last("FOR UPDATE"));}
     private FileObjectResponse map(FileObjectEntity e){return new FileObjectResponse(e.getId(),e.getTenantId(),HexFormat.of().formatHex(e.getSha256()),e.getByteSize(),e.getMediaType(),e.getStorageStatus(),e.getCreatedAt());}
     private String mediaType(String ext){return switch(ext){case "pdf"->"application/pdf";case "docx"->"application/vnd.openxmlformats-officedocument.wordprocessingml.document";case "md"->"text/markdown";default->"text/plain";};}
     private void cleanupQuiet(Path staging,Path published){try{if(published!=null)Files.deleteIfExists(published);storage.deleteStaging(staging);}catch(IOException ignored){}}
-    private static byte[] uuidBytes(UUID id){var b=java.nio.ByteBuffer.allocate(16);b.putLong(id.getMostSignificantBits()).putLong(id.getLeastSignificantBits());return b.array();}
-    private static UUID fromBytes(byte[] b){var v=java.nio.ByteBuffer.wrap(b);return new UUID(v.getLong(),v.getLong());}
 }

@@ -1,35 +1,44 @@
 import { request } from './http'
 import type { KnowledgeBase } from '@/types/domain'
 
-/**
- * 知识库 CRUD 全部待开发：后端只有一个固定 collection（application.yml 里
- * spring.ai.vectorstore.qdrant.collection-name=knowledge_base），
- * 没有知识库维度的表和接口。这里保留调用是为了让页面显示真实状态，
- * 而不是摆一组假数据。
- */
-
-/** GET /api/knowledge-bases —— 待开发。 */
-export function listKnowledgeBases(): Promise<KnowledgeBase[]> {
-  return request<KnowledgeBase[]>({ method: 'get', url: '/knowledge-bases', silent: true })
+export interface KnowledgeBasePage {
+  items: KnowledgeBase[]
+  total: number
+  page: number
+  size: number
 }
 
-/** POST /api/knowledge-bases —— 待开发。 */
-export function createKnowledgeBase(payload: {
+/** GET /api/knowledge-bases?tenantId=... returns the server page envelope. */
+export function listKnowledgeBases(params: { tenantId: string; page?: number; size?: number }): Promise<KnowledgeBasePage> {
+  return request<KnowledgeBasePage>({
+    method: 'get',
+    url: '/knowledge-bases',
+    params: { page: 1, size: 100, ...params },
+    silent: true
+  })
+}
+
+/** Development identity fields are required until authentication supplies them. */
+export interface KnowledgeBaseCreatePayload {
+  tenantId: string
+  createdBy: string
   name: string
-  description: string
-}): Promise<KnowledgeBase> {
+  description: string | null
+}
+
+export function createKnowledgeBase(payload: KnowledgeBaseCreatePayload): Promise<KnowledgeBase> {
   return request<KnowledgeBase>({ method: 'post', url: '/knowledge-bases', data: payload, silent: true })
 }
 
-/** PUT /api/knowledge-bases/{id} —— 待开发。 */
+/** PUT /api/knowledge-bases/{id}. */
 export function updateKnowledgeBase(
   id: string,
-  payload: { name: string; description: string }
+  payload: { name: string; description: string | null }
 ): Promise<KnowledgeBase> {
   return request<KnowledgeBase>({ method: 'put', url: `/knowledge-bases/${id}`, data: payload, silent: true })
 }
 
-/** DELETE /api/knowledge-bases/{id} —— 待开发。 */
+/** DELETE /api/knowledge-bases/{id}. */
 export function deleteKnowledgeBase(id: string): Promise<void> {
   return request<void>({ method: 'delete', url: `/knowledge-bases/${id}`, silent: true })
 }

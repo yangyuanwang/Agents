@@ -12,7 +12,11 @@ public class LocalFileStorage {
     public LocalFileStorage(FileStorageProperties properties) throws IOException {
         root=properties.getStorageRoot().toAbsolutePath().normalize(); Files.createDirectories(root.resolve(".staging"));
     }
-    public Path newStagingPath() { return root.resolve(".staging").resolve(UUID.randomUUID()+".part").normalize(); }
+    public Path newStagingPath() {
+        try { Files.createDirectories(root.resolve(".staging")); }
+        catch(IOException ex){throw new IllegalStateException("Cannot initialize staging directory",ex);}
+        return root.resolve(".staging").resolve(UUID.randomUUID()+".part").normalize();
+    }
     public String newStorageKey(){String id=UUID.randomUUID().toString();return id.substring(0,2)+"/"+id;}
     public Path resolve(String key) throws IOException {
         Path result=root.resolve(key).normalize();

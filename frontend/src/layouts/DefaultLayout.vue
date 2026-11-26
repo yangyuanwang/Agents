@@ -6,7 +6,7 @@ import { ElMessage } from 'element-plus'
 import StatusLight from '@/components/StatusLight.vue'
 import { useAppStore } from '@/stores/app'
 import { useSystemStore } from '@/stores/system'
-import { useTenantStore } from '@/stores/tenant'
+import { isUuid, useTenantStore } from '@/stores/tenant'
 
 interface MenuEntry {
   path: string
@@ -66,8 +66,8 @@ function statusTag(status: string): { label: string; type: 'success' | 'warning'
 
 function applyTenant() {
   const value = tenantDraft.value.trim()
-  if (!value) {
-    ElMessage.warning('租户标识不能为空，检索时它是必填过滤条件')
+  if (!isUuid(value)) {
+    ElMessage.warning('请输入数据库中已存在的租户 UUID；当前开发身份未设置')
     tenantDraft.value = tenant.tenantId
     return
   }

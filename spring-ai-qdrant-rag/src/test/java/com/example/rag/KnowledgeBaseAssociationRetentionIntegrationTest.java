@@ -40,5 +40,5 @@ class KnowledgeBaseAssociationRetentionIntegrationTest {
   assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM document WHERE id=?",Integer.class,bytes(document)));
   mvc.perform(get("/api/knowledge-bases/"+kb)).andExpect(status().isNotFound());
  }
- static byte[] bytes(UUID id){var b=java.nio.ByteBuffer.allocate(16);b.putLong(id.getMostSignificantBits()).putLong(id.getLeastSignificantBits());return b.array();}
+ static String bytes(UUID id){return id.toString();}
 }

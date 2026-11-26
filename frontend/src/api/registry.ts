@@ -98,11 +98,11 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
   },
   {
     key: 'document.upload',
-    name: '文档上传',
+    name: '文件上传并创建 FileObject',
     method: 'POST',
-    path: '/api/documents/upload',
-    status: 'pending',
-    note: '后端没有 multipart 接口，也没有 PDF / Word 解析与分块器。',
+    path: '/api/files/upload',
+    status: 'available',
+    note: 'multipart/form-data：knowledgeBaseId、file；201 返回 FileObject DTO。上传仅保存文件对象，不代表 DocumentVersion 已创建。',
     usedBy: ['文档管理']
   },
   {
@@ -110,8 +110,8 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
     name: '文档列表与处理状态',
     method: 'GET',
     path: '/api/documents',
-    status: 'pending',
-    note: '解析 / 分块 / 向量化状态需要后端任务表支撑。',
+    status: 'available',
+    note: 'GET /api/documents?knowledgeBaseId&page&size&keyword；返回 {items,total,page,size}，page 从 1 开始。',
     usedBy: ['文档管理', '首页 Dashboard']
   },
   {
@@ -119,8 +119,71 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
     name: '删除文档',
     method: 'DELETE',
     path: '/api/documents/{id}',
-    status: 'pending',
-    note: '待开发。',
+    status: 'available',
+    note: 'DELETE /api/documents/{id}?knowledgeBaseId=...；成功返回 204。',
+    usedBy: ['文档管理']
+  },
+  {
+    key: 'document.create',
+    name: '创建文档',
+    method: 'POST',
+    path: '/api/documents',
+    status: 'available',
+    note: '请求 {knowledgeBaseId,displayName}；成功 201 返回 Document DTO。',
+    usedBy: ['文档管理']
+  },
+  {
+    key: 'document.detail',
+    name: '文档详情',
+    method: 'GET',
+    path: '/api/documents/{id}',
+    status: 'available',
+    note: '查询参数 knowledgeBaseId；返回 Document DTO 及服务端当前版本信息。',
+    usedBy: ['文档管理']
+  },
+  {
+    key: 'document.update',
+    name: '编辑文档',
+    method: 'PUT',
+    path: '/api/documents/{id}',
+    status: 'available',
+    note: '查询参数 knowledgeBaseId，请求 {displayName}；返回更新后的 Document DTO。',
+    usedBy: ['文档管理']
+  },
+  {
+    key: 'document.version.list',
+    name: '文档版本列表',
+    method: 'GET',
+    path: '/api/documents/{id}/versions',
+    status: 'available',
+    note: '返回该文档版本 DTO 数组；版本号及状态来自服务端。',
+    usedBy: ['文档管理']
+  },
+  {
+    key: 'document.version.detail',
+    name: '文档版本详情',
+    method: 'GET',
+    path: '/api/documents/{id}/versions/{versionId}',
+    status: 'available',
+    note: '返回版本 DTO，包括 fileObjectId、SHA256、大小、原文件名和状态。',
+    usedBy: ['文档管理']
+  },
+  {
+    key: 'document.version.create',
+    name: '创建文档版本',
+    method: 'POST',
+    path: '/api/documents/{id}/versions',
+    status: 'available',
+    note: '请求 {fileObjectId,originalFilename}；成功 201，状态为 UPLOADED，版本号由后端生成。',
+    usedBy: ['文档管理']
+  },
+  {
+    key: 'document.version.activate',
+    name: '切换活动版本',
+    method: 'PUT',
+    path: '/api/documents/{id}/active-version',
+    status: 'available',
+    note: '请求 {versionId}；仅 COMPLETED 版本可切换，返回更新后的 Document DTO。',
     usedBy: ['文档管理']
   },
   {

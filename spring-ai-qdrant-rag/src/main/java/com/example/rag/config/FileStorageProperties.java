@@ -16,4 +16,10 @@ public class FileStorageProperties {
     public List<String> getAllowedExtensions(){return allowedExtensions;} public void setAllowedExtensions(List<String> v){allowedExtensions=v;}
     public long getCleanupRetryIntervalMs(){return cleanupRetryIntervalMs;} public void setCleanupRetryIntervalMs(long v){cleanupRetryIntervalMs=v;}
     public int getCleanupBatchSize(){return cleanupBatchSize;} public void setCleanupBatchSize(int v){cleanupBatchSize=v;}
+    public void setCleanup(Cleanup cleanup){if(cleanup!=null){cleanupRetryIntervalMs=cleanup.retryIntervalMs;cleanupBatchSize=cleanup.batchSize;}}
+    public static class Cleanup {
+        private long retryIntervalMs=300000; private int batchSize=100;
+        public long getRetryIntervalMs(){return retryIntervalMs;} public void setRetryIntervalMs(long v){retryIntervalMs=v;}
+        public int getBatchSize(){return batchSize;} public void setBatchSize(int v){batchSize=v;}
+    }
 }

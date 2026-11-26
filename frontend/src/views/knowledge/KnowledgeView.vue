@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 
 import PageHeader from '@/components/PageHeader.vue'
-import PendingNotice from '@/components/PendingNotice.vue'
-import { isApiError, isPendingError } from '@/api/http'
+import { isApiError } from '@/api/http'
 import {
   createKnowledgeBase,
   deleteKnowledgeBase,
@@ -12,10 +11,12 @@ import {
   updateKnowledgeBase
 } from '@/api/knowledge'
 import type { KnowledgeBase } from '@/types/domain'
+import { isUuid, useTenantStore } from '@/stores/tenant'
 
-type PageState = 'checking' | 'pending' | 'ready' | 'error'
+type PageState = 'checking' | 'ready' | 'error'
 
 const state = ref<PageState>('checking')
+const tenant = useTenantStore()
 const rows = ref<KnowledgeBase[]>([])
 const lastError = ref('')
 const submitting = ref(false)
@@ -25,13 +26,11 @@ const dialog = reactive({
   mode: 'create' as 'create' | 'edit',
   id: '',
   name: '',
-  description: ''
+  description: '',
+  createdBy: ''
 })
 
 const headline = computed(() => {
-  if (state.value === 'pending') {
-    return '后端没有知识库接口，列表为空是真实结果，不是加载失败。'
-  }
   if (state.value === 'ready') {
     return `已读取 ${rows.value.length} 个知识库。`
   }
@@ -44,17 +43,19 @@ const headline = computed(() => {
 async function load() {
   state.value = 'checking'
   lastError.value = ''
+  if (!isUuid(tenant.tenantId)) {
+    rows.value = []
+    state.value = 'error'
+    lastError.value = '请先在顶部输入数据库中已存在的租户 UUID。开发租户上下文尚未设置。'
+    return
+  }
   try {
-    rows.value = await listKnowledgeBases()
+    rows.value = (await listKnowledgeBases({ tenantId: tenant.tenantId })).items
     state.value = 'ready'
   } catch (error) {
     rows.value = []
-    if (isPendingError(error)) {
-      state.value = 'pending'
-    } else {
-      state.value = 'error'
-      lastError.value = isApiError(error) ? error.message : String(error)
-    }
+    state.value = 'error'
+    lastError.value = isApiError(error) ? error.message : String(error)
   }
 }
 
@@ -63,6 +64,7 @@ function openCreate() {
   dialog.id = ''
   dialog.name = ''
   dialog.description = ''
+  dialog.createdBy = tenant.createdBy
   dialog.visible = true
 }
 
@@ -70,33 +72,38 @@ function openEdit(row: KnowledgeBase) {
   dialog.mode = 'edit'
   dialog.id = row.id
   dialog.name = row.name
-  dialog.description = row.description
+  dialog.description = row.description ?? ''
   dialog.visible = true
 }
 
-/** 提交会真实打到预留地址；后端补上接口后这里不需要再改。 */
 async function submit() {
   if (!dialog.name.trim()) {
     ElMessage.warning('知识库名称不能为空')
     return
   }
+  if (dialog.mode === 'create') {
+    if (!isUuid(tenant.tenantId)) {
+      ElMessage.warning('请先设置真实租户 UUID')
+      return
+    }
+    if (!isUuid(dialog.createdBy)) {
+      ElMessage.warning('请填写数据库中已存在的开发操作者 UUID')
+      return
+    }
+    tenant.setCreatedBy(dialog.createdBy)
+  }
   submitting.value = true
-  const payload = { name: dialog.name.trim(), description: dialog.description.trim() }
+  const payload = { name: dialog.name.trim(), description: dialog.description.trim() || null }
 
   try {
     const saved = dialog.mode === 'create'
-      ? await createKnowledgeBase(payload)
+      ? await createKnowledgeBase({ ...payload, tenantId: tenant.tenantId, createdBy: tenant.createdBy })
       : await updateKnowledgeBase(dialog.id, payload)
     ElMessage.success(`已保存：${saved.name}`)
     dialog.visible = false
     await load()
   } catch (error) {
-    if (isPendingError(error)) {
-      ElMessage.warning('知识库写入接口待开发，请求已按契约发往后端但返回 404')
-      state.value = 'pending'
-    } else {
-      ElMessage.error(isApiError(error) ? error.message : String(error))
-    }
+    ElMessage.error(isApiError(error) ? error.message : String(error))
   } finally {
     submitting.value = false
   }
@@ -108,15 +115,11 @@ async function remove(row: KnowledgeBase) {
     ElMessage.success('已删除')
     await load()
   } catch (error) {
-    if (isPendingError(error)) {
-      ElMessage.warning('删除接口待开发')
-      state.value = 'pending'
-    } else {
-      ElMessage.error(isApiError(error) ? error.message : String(error))
-    }
+    ElMessage.error(isApiError(error) ? error.message : String(error))
   }
 }
 
+watch(() => tenant.tenantId, () => void load())
 onMounted(load)
 </script>
 
@@ -124,7 +127,7 @@ onMounted(load)
   <div class="app-page">
     <PageHeader
       title="知识库管理"
-      description="创建、编辑、删除知识库。后端目前把向量集合固定在配置项 spring.ai.vectorstore.qdrant.collection-name，还没有知识库维度的建模与接口，因此本页所有写操作都会真实发往预留地址并返回 404。"
+      description="通过后端接口管理知识库。租户和创建者由当前开发身份上下文提供；这不是生产级认证或授权。"
     >
       <template #actions>
         <el-button @click="load">
@@ -137,10 +140,6 @@ onMounted(load)
         </el-button>
       </template>
     </PageHeader>
-
-    <PendingNotice endpoint-key="knowledge.list" title="知识库列表" />
-    <PendingNotice endpoint-key="knowledge.create" title="创建 / 编辑知识库" />
-    <PendingNotice endpoint-key="knowledge.delete" title="删除知识库" />
 
     <div class="app-panel">
       <div class="app-panel__title">
@@ -162,7 +161,7 @@ onMounted(load)
         </el-table-column>
         <template #empty>
           <span class="app-muted">
-            {{ state === 'pending' ? '知识库接口待开发，暂无数据' : '暂无知识库' }}
+            {{ state === 'error' ? lastError : '暂无知识库' }}
           </span>
         </template>
       </el-table>
@@ -170,6 +169,9 @@ onMounted(load)
 
     <el-dialog v-model="dialog.visible" :title="dialog.mode === 'create' ? '新建知识库' : '编辑知识库'" width="480px">
       <el-form label-position="top">
+        <el-form-item v-if="dialog.mode === 'create'" label="开发操作者 UUID" required>
+          <el-input v-model="dialog.createdBy" class="app-mono" placeholder="输入数据库中已存在的 User UUID" />
+        </el-form-item>
         <el-form-item label="名称">
           <el-input v-model="dialog.name" placeholder="例如：化工技改安评报告库" />
         </el-form-item>

@@ -1,34 +1,14 @@
-/**
- * 这些类型描述的是后端尚未提供的能力，仅用于把契约固定下来：
- * 页面调用对应接口时会收到 404，被识别为 pending 并显示"待开发"，
- * 前端不会用假数据填充它们。
- */
 import type { VectorSearchResult } from './vector'
-
-export type DocumentStatus = 'pending' | 'parsing' | 'chunking' | 'embedding' | 'completed' | 'failed'
 
 export interface KnowledgeBase {
   id: string
+  tenantId: string
   name: string
-  description: string
-  documentCount?: number
-  chunkCount?: number
-  embeddingModel?: string
-  collectionName?: string
+  description: string | null
+  status?: string
+  createdBy?: string
   createdAt?: string
   updatedAt?: string
-}
-
-export interface RagDocument {
-  id: string
-  knowledgeBaseId: string
-  fileName: string
-  fileType: 'pdf' | 'docx' | 'txt' | 'md' | 'unknown'
-  sizeBytes?: number
-  status: DocumentStatus
-  chunkCount?: number
-  errorMessage?: string
-  uploadedAt?: string
 }
 
 export interface ChatMessage {

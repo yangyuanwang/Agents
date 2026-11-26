@@ -50,5 +50,5 @@ class KnowledgeBaseApiIntegrationTest {
   UUID rollback=UUID.randomUUID();org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,()->new TransactionTemplate(tx).execute(s->{KnowledgeBaseEntity e=new KnowledgeBaseEntity();e.setId(rollback);e.setTenantId(tenantId);e.setCreatedBy(userId);e.setName(marker+"-rollback");e.setStatus("ACTIVE");e.setCreatedAt(LocalDateTime.now());e.setUpdatedAt(e.getCreatedAt());kbs.insert(e);throw new IllegalStateException();}));
   org.junit.jupiter.api.Assertions.assertNull(kbs.selectById(rollback));
  }
- static byte[] bytes(UUID id){java.nio.ByteBuffer b=java.nio.ByteBuffer.allocate(16);b.putLong(id.getMostSignificantBits()).putLong(id.getLeastSignificantBits());return b.array();}
+ static String bytes(UUID id){return id.toString();}
 }

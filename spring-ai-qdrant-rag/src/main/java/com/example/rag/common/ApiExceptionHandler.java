@@ -3,6 +3,8 @@ package com.example.rag.common;
 import org.springframework.http.*;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -30,7 +32,13 @@ public class ApiExceptionHandler {
     ResponseEntity<?> status(ResponseStatusException ex) {
         return ResponseEntity.status(ex.getStatusCode()).body(Map.of("timestamp", Instant.now(), "error", ex.getReason() == null ? "请求失败" : ex.getReason()));
     }
-    @ExceptionHandler({MethodArgumentTypeMismatchException.class, ConstraintViolationException.class, HttpMessageNotReadableException.class})
+    @ExceptionHandler({
+            MethodArgumentTypeMismatchException.class,
+            MissingServletRequestParameterException.class,
+            MissingServletRequestPartException.class,
+            ConstraintViolationException.class,
+            HttpMessageNotReadableException.class
+    })
     ResponseEntity<?> invalidRequest(Exception ex) {
         return ResponseEntity.badRequest().body(Map.of("timestamp", Instant.now(), "error", "请求参数校验失败"));
     }
